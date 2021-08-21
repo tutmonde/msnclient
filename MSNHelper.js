@@ -43,8 +43,14 @@ module.exports = {
             }else{
                 return {'user': email, 'type': 'message', 'body': body};
             }
-        }else if(msnpmsg[0].startsWith('BYE')){
-            return {'user': email, 'type': 'bye'};
+        }else if(msnpmsg[0].startsWith('BYE')) {
+            return {'user': email, 'type': 'leftChat'};
+        }else if(msnpmsg[0].startsWith('USR')) {
+            return {'user': email, 'type': 'authSuccess'};
+        }else if(msnpmsg[0].startsWith('JOI')) {
+            return {'user': email, 'type': 'joinedChat'};
+        }else{
+            return {'user': email, 'type': 'unrecognized', 'body': msnpmsg[0]};
         }
     }
 }

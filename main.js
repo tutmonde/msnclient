@@ -63,6 +63,7 @@ class MSNClient extends EventEmitter  {
 						this.client.write('CHG 5 NLN 0' + endTag);
 						this.TrID = 6;
 						this.active = true;
+						this.emit('msg', {'type': 'connected'});
 					}
 
 					if(element[0] == 'USR' && element[2] == 'OK'){
@@ -74,7 +75,7 @@ class MSNClient extends EventEmitter  {
 						console.log('[DEBUG] Accepting request');
 						let server = new String(element[2]).split(':');
 						if (this.switchboard[element[5]] == undefined) {
-							this.switchboard[element[5]] = new MSNSwitchBoard(server[0], server[1], element[5]);
+							this.switchboard[element[5]] = new MSNSwitchBoard(server[0], server[1], element[5], this.email);
 							this.switchboard[element[5]].execute();
 							this.switchboard[element[5]].on('connected', () => {this.switchboard[element[5]].acceptRequest(this.email, element[1], element[4]);})
 						
@@ -104,6 +105,23 @@ class MSNClient extends EventEmitter  {
 		if(this.active == true) {
 			if(this.switchboard[emailArg] != null) {
 				this.switchboard[emailArg].sendMessage(bodyArg);
+			} else {
+				this.TrID++;
+				this.client.write('XFR ' + this.TrID +' SB' + endTag);
+				this.client.on('data', data => {
+					let parsed = msnsocket.parseMessage(data);
+					console.log(parsed);
+					if(parsed != undefined) {
+						parsed.forEach(async element => {
+							if(element[0] == 'XFR' && element[2] == 'SB') {
+								let server = new String(element[3]).split(':');
+								this.switchboard[emailArg] = new MSNSwitchBoard(server[0], server[1], emailArg, this.email);
+								this.switchboard[emailArg].execute();
+								this.switchboard[emailArg].authorizeAndSendMessage(element[5], bodyArg);
+							}
+						});
+					}
+				});
 			}
 		}
 	}
@@ -164,14 +182,18 @@ class MSNClient extends EventEmitter  {
 };
 
 class MSNSwitchBoard extends EventEmitter {
-	constructor(server, port, email) {
+	constructor(server, port, email, selfEmail) {
 		super();
 		this.email = email;
+		this.selfEmail = selfEmail;
 		this.server = server;
 		this.port = port;
 		this.TrID = 0;
 		this.switchboard = new net.Socket();
 		this.ThreadID = Math.random()*0.001;
+
+		// Temp
+		this.tmpMessage = '';
 
 		console.log('[DEBUG] [SWITCHBOARD: ' + this.ThreadID + '] Created');
 	}
@@ -185,7 +207,14 @@ class MSNSwitchBoard extends EventEmitter {
 		this.switchboard.on('data',  data => {
 			this.TrID++;
 			let parsed = msnsocket.parseMessageSB(data, this.email);
-			this.emit('msg', parsed);
+			if(parsed.type == 'joinedChat') {
+				this.sendMessage(this.tmpMessage);
+			}else if(parsed.type == 'authSuccess') {
+				console.log('CAL ' + this.TrID + ' ' + this.email + endTag);
+				this.switchboard.write('CAL ' + this.TrID + ' ' + this.email + endTag);
+			}else{
+				this.emit('msg', parsed);
+			}
 		});
 		
 		this.switchboard.on('error', err => {
@@ -193,8 +222,13 @@ class MSNSwitchBoard extends EventEmitter {
 		})
 	}
 
-	acceptRequest(email, session, auth) {
-		this.switchboard.write('ANS 1 '+email+' '+auth+' '+session+ endTag);
+	acceptRequest(session, auth) {
+		this.switchboard.write('ANS 1 '+this.selfEmail+' '+auth+' '+session+ endTag);
+	}
+
+	authorizeAndSendMessage(token, body) {
+		this.switchboard.write('USR ' + this.TrID + ' ' + this.selfEmail + ' ' + token + endTag);
+		this.tmpMessage = body;
 	}
 
 	sendMessage(body) {
