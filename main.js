@@ -37,7 +37,7 @@ class MSNClient extends EventEmitter  {
 				parsed.forEach(async element => {
 					if(element[0] == 'VER' && element[2] == 'MSNP9') {
 						console.log('[DEBUG] System info sent')
-						client.write('CVR 2 0x0409 linux 5.13.12 amd64 NODEMSN 5.0.0544 MSMSGS ' + this.login + endTag);
+						client.write('CVR 2 0x0409 '+process.platform+' '+os.version+' '+process.arch+' NODEMSN 5.0.0544 MSMSGS ' + this.login + endTag);
 					}
 
 					if(element[0] == 'CVR') {
