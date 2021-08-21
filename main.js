@@ -4,6 +4,7 @@ const axios = require('axios');
 const EventEmitter = require('events');
 var os = require('os');
 const { NOTINITIALIZED } = require('dns');
+const internal = require('stream');
 
 const endTag = "\r\n";
 
@@ -108,11 +109,11 @@ class MSNClient extends EventEmitter  {
 	}
 	
 	/**
-	 * This function will change the Presense of profile.
+	 * This function will change the Presence of profile.
 	 * 
 	 * @param {MSNStatuses} status The Status
 	 */
-	async changePresense(status) {
+	async changePresence(status) {
 		/*
 			Use MSNStatuses const 
 
@@ -127,6 +128,37 @@ class MSNClient extends EventEmitter  {
 		*/
 		if(this.active == true) {
 			this.client.write('CHG ' + this.TrID + ' ' + status + ' 0' + endTag);
+		}
+	}
+
+	listContacts(callback) {
+		if(this.active == true) {
+			let contactList = [];
+			let contactListCount = 0;
+			
+			let contactListCountTmp = 1;
+			this.client.write('SYN 1 0' + endTag);
+			this.client.on('data', data => {
+				this.TrID++;
+				let parsed = msnsocket.parseMessage(data);
+				if(parsed != undefined) {
+					parsed.forEach(element => {
+						if (element[0] == 'SYN' && element[1] == '1' && element[2] == '1') {
+							contactListCount = parseInt(element[3]);
+						} else if (element[0] == 'LST') {
+							contactListCountTmp++;
+							if (contactListCountTmp <= contactListCount) {
+								let contact = {email: element[1], name: decodeURI(element[2])};
+								contactList.push(contact);
+							}
+						}
+					});
+				}
+
+				if(contactList.length+1 == contactListCount) {
+					callback(contactList);
+				}
+			});
 		}
 	}
 };
