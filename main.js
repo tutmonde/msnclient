@@ -3,6 +3,7 @@ var msnsocket = require('./MSNHelper.js');
 const axios = require('axios');
 const EventEmitter = require('events');
 var os = require('os');
+const { NOTINITIALIZED } = require('dns');
 
 const endTag = "\r\n";
 
@@ -16,6 +17,7 @@ class MSNClient extends EventEmitter  {
 		this.TrID = 0;
 		this.email = '';
 		this.name = '';
+		this.client = new net.Socket();
 
 		this.active = false;
 
@@ -23,13 +25,12 @@ class MSNClient extends EventEmitter  {
 	}
 
 	execute() {
-		var client = new net.Socket();
-		client.connect(1863, 'msnmsgr.escargot.chat', function() {
+		this.client.connect(1863, 'msnmsgr.escargot.chat', () => {
 			console.log('[DEBUG] Connected to MSN Server');
-			client.write('VER 0 MSNP9 CVR0' + endTag);
+			this.client.write('VER 0 MSNP9 CVR0' + endTag);
 		});
 
-		client.on('data', async data => {
+		this.client.on('data', async data => {
 			this.TrID++;
 			let parsed = msnsocket.parseMessage(data);
 			console.log(parsed);
@@ -37,12 +38,12 @@ class MSNClient extends EventEmitter  {
 				parsed.forEach(async element => {
 					if(element[0] == 'VER' && element[2] == 'MSNP9') {
 						console.log('[DEBUG] System info sent')
-						client.write('CVR 2 0x0409 '+process.platform+' '+os.version+' '+process.arch+' NODEMSN 5.0.0544 MSMSGS ' + this.login + endTag);
+						this.client.write('CVR 2 0x0409 '+process.platform+' '+os.version+' '+process.arch+' NODEMSN 5.0.0544 MSMSGS ' + this.login + endTag);
 					}
 
 					if(element[0] == 'CVR') {
 						console.log('[DEBUG] [AUTH] Trying to log in...')
-						client.write('USR 3 TWN I ' + this.login + endTag);
+						this.client.write('USR 3 TWN I ' + this.login + endTag);
 					}
 
 					if(element[0] == 'USR' && element[2] == 'TWN'){
@@ -57,8 +58,8 @@ class MSNClient extends EventEmitter  {
 								console.log('[DEBUG] [AUTH] Got the token!');
 							})
 							.catch(err => console.log('error ', this.emit(err)));
-						client.write('USR 4 TWN S ' + this.token + endTag);
-						client.write('CHG 5 NLN 0' + endTag);
+						this.client.write('USR 4 TWN S ' + this.token + endTag);
+						this.client.write('CHG 5 NLN 0' + endTag);
 						this.TrID = 6;
 						this.active = true;
 					}
@@ -91,18 +92,41 @@ class MSNClient extends EventEmitter  {
 			}
 		});
 
-		client.on('close', () => {
+		this.client.on('close', () => {
 			this.emit('close');
 			this.active = false;
 		});
 
 	}
-
+	
 	async sendMessage(emailArg, bodyArg) {
 		if(this.active == true) {
 			if(this.switchboard[emailArg] != null) {
 				this.switchboard[emailArg].sendMessage(bodyArg);
 			}
+		}
+	}
+	
+	/**
+	 * This function will change the Presense of profile.
+	 * 
+	 * @param {MSNStatuses} status The Status
+	 */
+	async changePresense(status) {
+		/*
+			Use MSNStatuses const 
+
+			Statuses:
+			NLN - Available
+			BSY - Busy
+			IDL - Idle
+			BRB - Be Right Back
+			AWY - Away
+			PHN - On the Phone
+			LUN - Out to Lunch
+		*/
+		if(this.active == true) {
+			this.client.write('CHG ' + this.TrID + ' ' + status + ' 0' + endTag);
 		}
 	}
 };
@@ -152,4 +176,17 @@ class MSNSwitchBoard extends EventEmitter {
 	}
 }
 
+// Variables
+
+const MSNStatuses = {
+	Avaliable: 'NLN',
+	Busy: 'BSY',
+	Idle: 'IDL',
+	BeRightBack: 'BRB',
+	Away: 'AWY',
+	OnThePhone: 'PHN',
+	OutOfLunch: 'LUN'
+}
+
 exports.MSNClient = MSNClient;
+exports.MSNStatuses = MSNStatuses;
