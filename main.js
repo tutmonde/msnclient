@@ -90,6 +90,13 @@ class MSNClient extends EventEmitter  {
 						}
 						
 					}
+
+					if(element[0] == 'OUT') {
+						console.log('[DEBUG] Exit requested by server');
+						this.client.destroy();
+						delete this;
+						this.emit('close');
+					}
 				});
 			}
 		});
@@ -99,6 +106,12 @@ class MSNClient extends EventEmitter  {
 			this.active = false;
 		});
 
+	}
+
+	getUserInfo() {
+		return {'active': this.active,
+				'email': this.email,
+				'name': this.name};
 	}
 	
 	async sendMessage(emailArg, bodyArg) {

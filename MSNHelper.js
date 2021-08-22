@@ -1,5 +1,3 @@
-var qs = require('qs');
-
 module.exports = {
     parseMessage: function(str) {
         let strr = new String(str);
