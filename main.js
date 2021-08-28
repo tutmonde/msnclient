@@ -59,6 +59,7 @@ class MSNClient extends EventEmitter  {
 								if (this.token == 'failed') {
 									console.log('[DEBUG] [AUTH] Incorrect login or password');
 									this.emit('msg', {'type': 'auth_failed'});
+									this.client.destroy();
 									delete this;
 								}else{
 									console.log('[DEBUG] [AUTH] Success');
@@ -94,8 +95,7 @@ class MSNClient extends EventEmitter  {
 									}
 								}
 							});
-						}
-						
+						}	
 					}
 
 					if(element[0] == 'OUT') {
@@ -103,6 +103,17 @@ class MSNClient extends EventEmitter  {
 						this.client.destroy();
 						delete this;
 						this.emit('close');
+					}
+
+					// Errors
+					
+					if(element[0] == '911') {
+						if(this.active == false) {
+							console.log('[DEBUG] [AUTH] Incorrect login or password');
+							this.emit('msg', {'type': 'auth_failed'});
+							this.client.destroy();
+							delete this;
+						}
 					}
 				});
 			}
