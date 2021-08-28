@@ -13,9 +13,15 @@ module.exports = {
     },
 
     parseToken: function(str) {
-        const regex = /from-PP='([a-z0-9]+)'/g;
-        let result = regex.exec(str);
-        return result[1];
+        const regex = /da-status=([a-z0-9]+)/g;
+        const regex2 = /from-PP='([a-z0-9]+)'/g;
+        let status = regex.exec(str);
+        if (status == 'failed') {
+            return 'failed';
+        }else{
+            let result = regex2.exec(str);
+            return result[1];
+        }
     },
 
     parseMessageSB: function(str, email) {

@@ -56,19 +56,26 @@ class MSNClient extends EventEmitter  {
 							.then(Response => {
 								tokenu = Response.headers['authentication-info'];
 								this.token = msnsocket.parseToken(tokenu);
-								console.log('[DEBUG] [AUTH] Got the token!');
+								if (this.token == 'failed') {
+									console.log('[DEBUG] [AUTH] Incorrect login or password');
+									this.emit('msg', {'type': 'auth_failed'});
+									delete this;
+								}else{
+									console.log('[DEBUG] [AUTH] Success');
+								}
+								
 							})
 							.catch(err => console.log('error ', this.emit(err)));
 						this.client.write('USR 4 TWN S ' + this.token + endTag);
 						this.client.write('CHG 5 NLN 0' + endTag);
 						this.TrID = 6;
 						this.active = true;
-						this.emit('msg', {'type': 'connected'});
 					}
 
 					if(element[0] == 'USR' && element[2] == 'OK'){
 						this.email = element[3];
 						this.name = element[4];
+						this.emit('msg', {'type': 'connected'});
 					}
 
 					if(element[0] == 'RNG' && element[3] == 'CKI') {
